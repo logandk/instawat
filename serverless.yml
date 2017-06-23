@@ -1,0 +1,124 @@
+service: instawat
+
+provider:
+  name: aws
+  runtime: python2.7
+  region: us-east-1
+
+  # Set up IAM authorization for the Lambda functions. They get full access
+  # to the S3 bucket and DynamoDB table.
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - "*"
+      Resource:
+        - "arn:aws:s3:::${self:custom.bucket}/*"
+        - "arn:aws:dynamodb:*:*:table/instawat"
+        - "arn:aws:dynamodb:*:*:table/instawat/*"
+
+  # These environment variables are from the Python code to determine the
+  # S3 bucket and DynamoDB table to use for storage.
+  environment:
+    BUCKET_NAME: ${self:custom.bucket}
+    TABLE_NAME: instawat
+
+# The serverless-wsgi plugin allows us to use Flask for the web app.
+plugins:
+  - serverless-wsgi
+
+# Exclude anything you do not need. A smaller package bundle means less latency
+# on cold invocation.
+package:
+  exclude:
+    - images/**
+    - node_modules/**
+
+functions:
+  # PART 1: APP
+  app:
+    handler: wsgi.handler
+    events:
+      - http: ANY /
+
+  # PART 2: DOWNLOADER
+  downloader:
+    timeout: 30
+    handler: downloader.handler
+    events:
+      - stream:
+          # Listen for stream events when new items are added to DynamoDB.
+          type: dynamodb
+          # Limit the number of events to process per invocation.
+          batchSize: 10
+          arn:
+            Fn::GetAtt:
+              - InstawatTable
+              - StreamArn
+
+  # PART 3: THE WATIFIER
+  watifier:
+    # We'll give it some more memory/CPU as it does a bit more work.
+    memorySize: 512
+    timeout: 30
+    handler: watifier.handler
+    events:
+      - s3:
+          # This statement also creates the S3 bucket.
+          bucket: ${self:custom.bucket}
+          rules:
+            # Only trigger events for originals, otherwise watified photos
+            # would be watified, double-watified photos would be triple-watified
+            # and all hell would break loose.
+            # Your AWS bill would suffer, at the very least.
+            - prefix: original/
+
+custom:
+  # The name of the bucket must be provided on the CLI as --bucket_name.
+  bucket: ${opt:bucket_name}
+  wsgi:
+    app: app.app
+
+# This section is pretty hairy, blame CloudFormation.
+resources:
+  Resources:
+    # Create a table in DynamoDB.
+    InstawatTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: instawat
+
+        # A list of the attributes that will be used for indexes.
+        AttributeDefinitions:
+          - AttributeName: url
+            AttributeType: S
+          - AttributeName: created_at_date
+            AttributeType: S
+          - AttributeName: created_at_time
+            AttributeType: N
+
+        # The url is the primary key.
+        KeySchema:
+          - AttributeName: url
+            KeyType: HASH
+
+        # We want to show a list of the latest wats created today. For
+        # this purpose, we will need a GSI that sorts by timestamp.
+        GlobalSecondaryIndexes:
+          - IndexName: created_at-index
+            KeySchema:
+            - AttributeName: created_at_date
+              KeyType: HASH
+            - AttributeName: created_at_time
+              KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+
+        # Stream new items to the downloader.
+        StreamSpecification:
+          StreamViewType: NEW_IMAGE

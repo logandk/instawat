@@ -1,0 +1,7 @@
+{
+  "name": "instawat",
+  "version": "1.0.0",
+  "dependencies": {
+    "serverless-wsgi": "^1.1.1"
+  }
+}

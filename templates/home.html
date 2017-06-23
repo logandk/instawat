@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>Instawat</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css" />
+</head>
+<body>
+  <h2>What's this?</h2>
+
+  <p>
+    When I was preparing to give a talk on Serverless, I remembered
+    Gary Bernhardt's excellent <em>Wat</em> <a href="https://www.destroyallsoftware.com/talks/wat">talk</a>.
+
+    I had <a href="http://knowyourmeme.com/memes/the-guy-holding-a-sewing-machine-in-front-of-a-ups-truck-accident-the-unexplainable-picture">this</a> particular
+    photo in mind. The young man in the photo, let's call him <em>Watathan</em>,
+    carries the succint ability to add significant <em>watness</em> to an otherwise
+    not-particularly-extraordinary photo.
+  </p>
+
+  <p>
+    I needed a demo for the talk, but most of all, I wanted to examine whether the unique
+    ability of young <em>Watathan</em> would translate to other photos equally well.
+    Thanks to Serverless, I am happy to report that it does!
+  </p>
+
+  <p>
+    Built by Logan Raarup (<a href="http://gokyo.dk">http://gokyo.dk</a>), source code is on <a href="http://github.com/logandk/instawat">GitHub</a>.
+  </p>
+
+  <h2>New wat</h2>
+
+  <form method="post" action="{{url_for('create')}}">
+    <input type="url" name="url" placeholder="http://whatever" required>
+    <button type="submit">Watify!</button>
+  </form>
+
+  <h2>Today's latest wats</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Original</th>
+        <th>Watified</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td style="width: 50%;"><a href="{{item.url}}"><img src="{{item.url}}" style="width: 100%;"></a></td>
+          <td style="width: 50%;">{% if item.watified_url %}<a href="{{item.watified_url}}"><img src="{{item.watified_url}}" style="width: 100%;"></a>{% endif %}</td>
+          <td>{{item.created_at}}{{item.status}}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h4>Terms of use</h4>
+  <p>
+    <strong>Do not upload:</strong><br>
+    Copyrighted images if you don't own copyright for it.<br>
+    Violence, racial intolerance, or advocate against any individual, group, or organization.<br>
+    Any other images that might be considered illegal in USA or EU countries.<br>
+    If you are not sure whether image you want to upload is allowed then do not upload that image.<br>
+    Images that violate terms will be removed without warning.
+  </p>
+</body>
+</html>
